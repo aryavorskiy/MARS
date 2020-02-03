@@ -46,8 +46,11 @@ Matrice::Matrice(ifstream fs) {
 				if (cell != 0.) {
 					unemptyMat[i * (size + 1)]++;
 					unemptyMat[i * (size + 1) + unemptyMat[i * (size + 1)]] = j;
-					unemptyMat[j * (size + 1)]++;
-					unemptyMat[j * (size + 1) + unemptyMat[j * (size + 1)]] = i;
+					if (i != j) {
+						unemptyMat[j * (size + 1)]++;
+						unemptyMat[j * (size + 1) + unemptyMat[j * (size + 1)]] =
+								i;
+					}
 				}
 				sum += cell;
 			}
@@ -79,9 +82,7 @@ void Matrice::Randomize() {
 }
 
 int Matrice::getSize() {
-	int s;
-	s = size;
-	return s;
+	return size;
 }
 
 string Matrice::getMatriceText() {

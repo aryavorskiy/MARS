@@ -18,7 +18,7 @@ using namespace FilesystemProvider;
 
 int StartupUtils::grabFromString(string inp, long double& startRef,
 		long double& endRef, long& pointCountRef, double& pStepRef,
-		Matrice& matrixRef, int& blockCountRef, string& wDirRef, bool& cliRef,
+		Matrice& matrixRef, int& blockCountRef, string& wDirRef,
 		float& minDiffRef, int& appendConfigRef, float& linearCoefRef,
 		bool& doPlot) {
 	istringstream ifs = istringstream(inp);
@@ -86,17 +86,6 @@ int StartupUtils::grabFromString(string inp, long double& startRef,
 						<< "Bad word after %irand: " << buf << ", line ignored."
 						<< endl;
 			}
-		} else if (buffer == "%cli") {
-			ifs >> buffer;
-			if (buffer == "true" || buffer == "t")
-				cliRef = true;
-			else if (buffer == "false" || buffer == "f")
-				cliRef = false;
-			else {
-				cout << "InputParser: CRITICAL WARNING: "
-						<< "Bad word after %cli: " << buffer
-						<< ", line ignored." << endl;
-			}
 		} else if (buffer == "%plot") {
 			ifs >> buffer;
 			if (buffer == "true" || buffer == "t")
@@ -105,7 +94,7 @@ int StartupUtils::grabFromString(string inp, long double& startRef,
 				doPlot = false;
 			else {
 				cout << "InputParser: CRITICAL WARNING: "
-						<< "Bad word after %cli: " << buffer
+						<< "Bad word after %plot: " << buffer
 						<< ", line ignored." << endl;
 			}
 		} else if (buffer == "%ac" || buffer == "%appconf") {

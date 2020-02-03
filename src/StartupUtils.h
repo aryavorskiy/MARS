@@ -12,7 +12,7 @@
 namespace StartupUtils {
 int grabFromString(string inp, long double& startRef, long double& endRef,
 		long& pointCountRef, double& pStepRef, Matrice& matriceRef,
-		int& blockCountRef, string& wDirRef, bool& cliRef, float& minDiffRef, int& appendConfigRef, float& linearCoefRef, bool& doPlot);
+		int& blockCountRef, string& wDirRef, float& minDiffRef, int& appendConfigRef, float& linearCoefRef, bool& doPlot);
 }
 
 #endif /* STARTUPUTILS_H_ */
@@ -20,6 +20,6 @@ int grabFromString(string inp, long double& startRef, long double& endRef,
 /*
  * INFO:
  * Return 0 if success,
- * -1 if error
- * 1 if data incomplete
+ * -1 if an error occured
+ * 1 if data is incomplete
  */

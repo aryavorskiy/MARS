@@ -1,5 +1,5 @@
 /*
- * CudaOperations.h
+ * CudaAnnealing.h
  *
  *  Created on: Feb 6, 2019
  *      Author: alexander
@@ -11,28 +11,28 @@
 #include "Matrice.h"
 #include "Spinset.h"
 
-class CudaOperator {
+class CudaAnnealing {
 private:
 	//GPU pointers
-	float* devSpins; //Spinset
-	float* devMat; //Matrix
+	float* devSpins; //Set
+	float* devMat; //Mat
 	int* devUnemptyMat; //UnemptyMat field of Matrix object
 	float* devTemp; //Temperature
-	float* meanFieldElems; //Temporary storage for meanfield computation
+	float* meanFieldMembers; //Temporary storage for mean-field computation
 	bool* continueIteration;
-	double* hamiltonianElems; //Temporary storage for hamiltonian computation
+	double* hamiltonianMembers; //Temporary storage for hamiltonian computation
 	//CPU variables
 	int size;
 	int blockSize;
 	int blockCount;
 	float minDiff;
 public:
-	CudaOperator(Matrice matrix, int blockCount, float _minDiff);
-	void cudaLoadSpinset(Spinset spinset, int index);
-	void cudaPull(float pStep, float linearCoef);
+	CudaAnnealing(Matrice matrix, int blockCount, float _minDiff);
+	void loadSet(Spinset spinset, int index);
+	void anneal(float pStep, float linearCoef);
 	double extractHamiltonian(int index);
-	Spinset extractSpinset(int index);
-	void cudaClear();
+	Spinset extractSet(int index);
+	void freeAllocatedMemory();
 };
 
 #endif /* CUDAOPERATIONS_H_ */

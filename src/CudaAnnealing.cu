@@ -1,5 +1,5 @@
 /*
- * CudaOperations.cu
+ * CudaAnnealing.cu
  *
  *  Created on: Feb 6, 2019
  *      Author: alexander
@@ -7,7 +7,7 @@
 
 #include "Matrice.h"
 #include "Spinset.h"
-#include "CudaOperator.h"
+#include "CudaAnnealing.h"
 #include <cuda_runtime.h>
 #include <sstream>
 #include <math.h>
@@ -21,14 +21,14 @@ void checkError(cudaError_t err, string arg = "") {
 	}
 }
 
-CudaOperator::CudaOperator(Matrice _matrix, int _blockCount, float _minDiff) {
+CudaAnnealing::CudaAnnealing(Matrice _matrix, int _blockCount, float _minDiff) {
 	minDiff = _minDiff;
 	// Set pointers to null
 	devSpins = NULL;
 	devMat = NULL;
 	devUnemptyMat = NULL;
-	meanFieldElems = NULL;
-	hamiltonianElems = NULL;
+	meanFieldMembers = NULL;
+	hamiltonianMembers = NULL;
 	continueIteration = NULL;
 	devTemp = NULL;
 
@@ -42,12 +42,12 @@ CudaOperator::CudaOperator(Matrice _matrix, int _blockCount, float _minDiff) {
 
 	// Allocate memory for pointers at GPU
 	checkError(
-			cudaMalloc((void**) &meanFieldElems,
+			cudaMalloc((void**) &meanFieldMembers,
 					sizeof(float) * size * blockCount), "malloc");
 	cudaMalloc((void**) &devMat, sizeof(float) * size * size);
 	cudaMalloc((void**) &devSpins, sizeof(float) * size * blockCount);
 	cudaMalloc((void**) &devUnemptyMat, sizeof(int) * size * (size + 1));
-	cudaMalloc((void**) &hamiltonianElems, sizeof(double) * size * size);
+	cudaMalloc((void**) &hamiltonianMembers, sizeof(double) * size * size);
 	cudaMalloc((void**) &devTemp, sizeof(float) * blockCount);
 	cudaMalloc((void**) &continueIteration, sizeof(bool) * _blockCount);
 
@@ -59,28 +59,29 @@ CudaOperator::CudaOperator(Matrice _matrix, int _blockCount, float _minDiff) {
 			sizeof(int) * size * (size + 1), cudaMemcpyHostToDevice);
 }
 
-void CudaOperator::cudaLoadSpinset(Spinset spinset, int spinsetIndex) {
+void CudaAnnealing::loadSet(Spinset set, int setIndex) {
 	checkError(
-			cudaMemcpy(&devSpins[spinsetIndex * size], spinset.getArray(),
+			cudaMemcpy(&devSpins[setIndex * size], set.getArray(),
 					sizeof(float) * size, cudaMemcpyHostToDevice),
 			"memcpy spinset to device");
-	cudaMemcpy(&devTemp[spinsetIndex], &(spinset.temp), sizeof(float),
+	cudaMemcpy(&devTemp[setIndex], &(set.temp), sizeof(float),
 			cudaMemcpyHostToDevice);
 }
 
-void CudaOperator::cudaClear() {
-	//Free GPU memory
+void CudaAnnealing::freeAllocatedMemory() {
+	// Free GPU memory
 	cudaFree(devSpins);
 	cudaFree(devMat);
-	cudaFree(meanFieldElems);
+	cudaFree(meanFieldMembers);
 	cudaFree(devTemp);
 	cudaFree(devUnemptyMat);
-	cudaFree(hamiltonianElems);
+	cudaFree(hamiltonianMembers);
 	cudaFree(continueIteration);
 }
 
-__global__ void allocHamiltonian(float* devMat, float* devSpins, int index,
-		int size, double* energyTempor) {
+__global__ void allocateHamiltonianMembers(float* devMat, float* devSpins,
+		int index, int size, double* hamiltonianMembers) {
+	// Hamiltonian member assignment
 	int i;
 	int j;
 
@@ -88,19 +89,21 @@ __global__ void allocHamiltonian(float* devMat, float* devSpins, int index,
 	while (wIndex < size * size) {
 		i = wIndex % size;
 		j = (int) (wIndex / size);
-		energyTempor[wIndex] = (double) (devSpins[i + index * size]
+		hamiltonianMembers[wIndex] = (double) (devSpins[i + index * size]
 				* devSpins[j + index * size] * devMat[wIndex]);
 		wIndex = wIndex + blockDim.x * gridDim.x;
 	}
 }
 
-__global__ void quickSum(double* energyTempor, int size) {
+__global__ void quickSum(double* members, int size) {
+	// Sum up numbers in specified range within specified pointer
+	// In the end she sum will be accessible directly from pointer
 	long long offset = 1;
 	int wIndex;
-	while (offset < size * size) {
+	while (offset < size) {
 		wIndex = threadIdx.x;
-		while ((wIndex * 2 + 1) * offset < size * size) {
-			energyTempor[wIndex * 2 * offset] += energyTempor[(wIndex * 2 + 1)
+		while ((wIndex * 2 + 1) * offset < size) {
+			members[wIndex * 2 * offset] += members[(wIndex * 2 + 1)
 					* offset];
 			wIndex = wIndex + blockDim.x;
 		}
@@ -109,21 +112,21 @@ __global__ void quickSum(double* energyTempor, int size) {
 	}
 }
 
-double CudaOperator::extractHamiltonian(int index) {
-	allocHamiltonian<<<blockCount, blockSize>>>(devMat, devSpins, index, size,
-			hamiltonianElems);
-	quickSum<<<1, blockSize>>>(hamiltonianElems, size);
+double CudaAnnealing::extractHamiltonian(int index) { // Get hamiltonian from set with index
+	allocateHamiltonianMembers<<<blockCount, blockSize>>>(devMat, devSpins, index, size,
+			hamiltonianMembers);
+	quickSum<<<1, blockSize>>>(hamiltonianMembers, size * size);
 	cudaDeviceSynchronize();
 	cudaError_t err = cudaGetLastError();
 	checkError(err, "Kernel at extractEnergy");
 	double out;
 	checkError(
-			cudaMemcpy(&out, hamiltonianElems, sizeof(double),
+			cudaMemcpy(&out, hamiltonianMembers, sizeof(double),
 					cudaMemcpyDeviceToHost), "memcpy energy to host");
 	return out / 2.;
 }
 
-Spinset CudaOperator::extractSpinset(int index) {
+Spinset CudaAnnealing::extractSet(int index) { // Get spins from set with index
 	float* hSpins = (float*) malloc(sizeof(float) * size);
 	checkError(
 			cudaMemcpy(hSpins, &devSpins[index * size], sizeof(float) * size,
@@ -134,37 +137,45 @@ Spinset CudaOperator::extractSpinset(int index) {
 	return outSpins;
 }
 
-__global__ void cudaKernelPull(float* mat, float* spins, int size, float* temp,
-		float tempStep, float* meanFieldElements, bool* continueIteration,
-		float minDiff, int* unemptyCells, float linearCoef) {
+__device__ float meanFieldMember(const float *mat, const float *set,
+		int spinIndex, int i, int size) {  // Returns /Phi_ind
+	if (i != spinIndex)
+		return mat[spinIndex * size + i] * set[i];
+	else
+		return mat[spinIndex * size + i];
+}
+
+__global__ void cudaKernelAnneal(float* mat, float* spins, int size,
+		float* temp, float tempStep, float* meanFieldMembers,
+		bool* proceedFlags, float proceedThreshold, int* unemptyCells,
+		float linearCoef) {
 	int blockId = blockIdx.x;
 	int thrId = threadIdx.x;
 
 	do {
-		// Lessen temperature
+		// Decrease temperature
 		if (thrId == 0)
 			temp[blockId] = temp[blockId] - tempStep;
 
 		// Stabilize
 		do {
 			__syncthreads();
-			// By default current iteration is the last one
+			// Resetting flags
 			if (thrId == 0)
-				continueIteration[blockId] = false;
+				proceedFlags[blockId] = false;
 
-			for (int spinId = 0; spinId < size; ++spinId) {
+			for (int spinId = 0; spinId < size; ++spinId) {  // Anneal every spin
 				__syncthreads();
 
-				// Transitional value assignment
+				// Mean-field member assignment
 				int wIndex = thrId;
+
 				while (wIndex < unemptyCells[spinId * (size + 1)]) {
-					meanFieldElements[wIndex + blockId * size] =
-							spins[unemptyCells[spinId * (size + 1) + wIndex + 1]
-									+ blockId * size]
-									* mat[spinId * size
-											+ unemptyCells[spinId * (size + 1)
-													+ wIndex + 1]];
-					// BEWARE: Matrix is symmetrical!
+					meanFieldMembers[wIndex + blockId * size] =
+							meanFieldMember(mat, spins + blockId * size,
+									spinId,
+									unemptyCells[spinId * (size + 1) + wIndex
+											+ 1], size);
 					wIndex = wIndex + blockDim.x;
 				}
 				__syncthreads();
@@ -175,8 +186,8 @@ __global__ void cudaKernelPull(float* mat, float* spins, int size, float* temp,
 					wIndex = thrId;
 					while ((wIndex * 2 + 1) * offset
 							< unemptyCells[spinId * (size + 1)]) {
-						meanFieldElements[wIndex * 2 * offset + blockId * size] +=
-								meanFieldElements[(wIndex * 2 + 1) * offset
+						meanFieldMembers[wIndex * 2 * offset + blockId * size] +=
+								meanFieldMembers[(wIndex * 2 + 1) * offset
 										+ blockId * size];
 						wIndex = wIndex + blockDim.x;
 					}
@@ -187,7 +198,7 @@ __global__ void cudaKernelPull(float* mat, float* spins, int size, float* temp,
 
 				// Mean-field calculation complete - write new spin and delta
 				if (thrId == 0) {
-					float meanField = meanFieldElements[blockId * size];
+					float meanField = meanFieldMembers[blockId * size];
 					float old = spins[spinId + blockId * size];
 					if (temp[blockId] > 0) {
 						spins[spinId + blockId * size] = -1
@@ -199,18 +210,18 @@ __global__ void cudaKernelPull(float* mat, float* spins, int size, float* temp,
 					else
 						spins[spinId + blockId * size] = 1;
 
-					if (minDiff < fabs(old - spins[spinId + blockId * size]))
-						continueIteration[blockId] = true; // Too big delta. One more iteration needed
+					if (proceedThreshold < fabs(old - spins[spinId + blockId * size]))
+						proceedFlags[blockId] = true; // Too big delta. One more iteration needed
 				}
 				__syncthreads();
 			}
-		} while (continueIteration[blockId]);
+		} while (proceedFlags[blockId]);
 	} while (temp[blockId] >= 0);
 }
 
-void CudaOperator::cudaPull(float pStep, float linearCoef) {
-	cudaKernelPull<<<blockCount, blockSize>>>(devMat, devSpins, size, devTemp,
-			pStep, meanFieldElems, continueIteration, minDiff, devUnemptyMat, linearCoef);
+void CudaAnnealing::anneal(float pStep, float linearCoef) {
+	cudaKernelAnneal<<<blockCount, blockSize>>>(devMat, devSpins, size, devTemp,
+			pStep, meanFieldMembers, continueIteration, minDiff, devUnemptyMat, linearCoef);
 	cudaDeviceSynchronize();
 	cudaError_t err = cudaGetLastError();
 	checkError(err, "Kernel at cudaPull");
