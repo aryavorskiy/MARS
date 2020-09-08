@@ -82,8 +82,7 @@ void CudaAnnealing::freeAllocatedMemory() {
 __global__ void allocateHamiltonianMembers(float* devMat, float* devSpins,
 		int setIndex, int size, double* hamiltonianMembers) {
 	// Hamiltonian member assignment
-	int i;
-	int j;
+	int i, j;
 
 	int wIndex = threadIdx.x + blockIdx.x * blockDim.x;
 	while (wIndex < size * size) {
@@ -92,11 +91,9 @@ __global__ void allocateHamiltonianMembers(float* devMat, float* devSpins,
 		if (i == j)
 			hamiltonianMembers[wIndex] = devSpins[i + setIndex * size]
 					* devMat[wIndex];
-		else if (i > j)
+		else
 			hamiltonianMembers[wIndex] = (double) (devSpins[i + setIndex * size]
 					* devSpins[j + setIndex * size] * devMat[wIndex]);
-		else
-			hamiltonianMembers[wIndex] = 0;
 		wIndex = wIndex + blockDim.x * gridDim.x;
 	}
 }
@@ -145,7 +142,7 @@ Spinset CudaAnnealing::extractSet(int index) { // Get spins from set with index
 __device__ float meanFieldMember(const float *mat, const float *set,
 		int spinIndex, int i, int size) {  // Returns /Phi_ind
 	if (i != spinIndex)
-		return mat[spinIndex * size + i] * set[i];
+		return (mat[spinIndex * size + i] + mat[i * size + spinIndex]) * set[i];
 	else
 		return mat[spinIndex * size + i];
 }
@@ -154,8 +151,7 @@ __global__ void cudaKernelAnneal(float* mat, float* spins, int size,
 		float* temp, float tempStep, float* meanFieldMembers,
 		bool* proceedFlags, float proceedThreshold, int* unemptyCells,
 		float linearCoef) {
-	int blockId = blockIdx.x;
-	int thrId = threadIdx.x;
+	int blockId = blockIdx.x, thrId = threadIdx.x;
 
 	do {
 		// Decrease temperature
@@ -202,8 +198,7 @@ __global__ void cudaKernelAnneal(float* mat, float* spins, int size,
 
 				// Mean-field calculation complete - write new spin and delta
 				if (thrId == 0) {
-					float meanField = meanFieldMembers[blockId * size];
-					float old = spins[spinId + blockId * size];
+					float meanField = meanFieldMembers[blockId * size], old = spins[spinId + blockId * size];
 					if (temp[blockId] > 0) {
 						spins[spinId + blockId * size] = -1
 								* tanh(meanField / temp[blockId]) * linearCoef

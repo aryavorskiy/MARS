@@ -1,5 +1,5 @@
 #define VERSION 5.3
-#define BUILD 122
+#define BUILD 123
 
 #include <stdio.h>
 #include <iostream>
@@ -20,7 +20,7 @@ using namespace std;
 using namespace FilesystemProvider;
 
 //Minimum storage
-double minHamiltonian = 10000;
+double minHamiltonian = 0;
 int minCount;
 string minSpins;
 float lTemp;
@@ -76,7 +76,7 @@ int main(int argc, char* argv[]) {
 			<< BUILD << endl;
 
 	//Init model
-	Matrix matrice(2);
+	Matrix matrix(2);
 	string dir = "";
 	long double dTemp = 0;
 	long double upTemp = -1;
@@ -117,7 +117,7 @@ int main(int argc, char* argv[]) {
 
 	cout << "Parsing..." << endl;
 	exitCode = StartupUtils::grabFromString(oss.str(), ref(dTemp), ref(upTemp),
-			ref(pointCount), ref(pullStep), ref(matrice), ref(blockCount),
+			ref(pointCount), ref(pullStep), ref(matrix), ref(blockCount),
 			ref(dir), ref(minimDiff), ref(appendConfig), ref(linearCoef),
 			ref(doPlot));
 	if (exitCode == -1)
@@ -133,7 +133,7 @@ int main(int argc, char* argv[]) {
 
 	if (dir == "auto" || dir == "-a") {
 		ostringstream oss;
-		oss << "calc" << matrice.getSize() << "_";
+		oss << "calc" << matrix.getSize() << "_";
 		int dirIndex = FreeFileIndex(getCurrentWorkingDirectory(), oss.str(),
 				"", false);
 		oss << dirIndex;
@@ -147,7 +147,7 @@ int main(int argc, char* argv[]) {
 
 	logWriter.open(dir + "/log.txt", ios::out | ios::app);
 
-	logWriter << "Matrice loaded, size " << matrice.getSize()
+	logWriter << "Matrix loaded, size " << matrix.getSize()
 			<< ", will evaluate " << pointCount << " points." << endl;
 
 // Init plot, clock, CUDA, CLI
@@ -164,16 +164,16 @@ int main(int argc, char* argv[]) {
 	ofstream maxcutWriter(ComposeFilename(dir, "data_maxcut", ".txt"));
 	maxcutWriter << " " << endl;
 
-	CudaAnnealing op = CudaAnnealing(matrice, blockCount, minimDiff);
+	CudaAnnealing op = CudaAnnealing(matrix, blockCount, minimDiff);
 	start = time(NULL);
 
 	ofstream fffff;
 	fffff.open("/home/alexander/qubo_check.txt", ios::out);
 
-	fffff << matrice.getMatrixText() << endl;
+	fffff << matrix.getMatrixText() << endl;
 
 // Start calculations
-	Spinset spins(matrice.getSize());
+	Spinset spins(matrix.getSize());
 	for (long pointIndex = 0; pointIndex < pointCount;) {
 		logWriter << "[" << getTimeString(time(NULL) - start) << "] "
 				<< "Starting pull session. Loading spinsets..." << endl;
@@ -211,7 +211,7 @@ int main(int argc, char* argv[]) {
 				minCount++;
 			}
 			hamiltonianWriter << fabs(spins.temp) << "\t" << nrg << " \n";
-			maxcutWriter << (matrice.getSum() - nrg) / 2.0 << ", \n";
+			maxcutWriter << (matrix.getSum() - nrg) / 2.0 << ", \n";
 			pointIndex++;
 		}
 		progress = (spins.temp * spins.temp - dTemp * dTemp)
@@ -224,7 +224,7 @@ int main(int argc, char* argv[]) {
 				<< endl << endl;
 		hamiltonianWriter.flush();
 		maxcutWriter.flush();
-		saveMinData(dir, matrice, dTemp, spins.temp, pointIndex, blockCount,
+		saveMinData(dir, matrix, dTemp, spins.temp, pointIndex, blockCount,
 				doPlot);
 	}
 
