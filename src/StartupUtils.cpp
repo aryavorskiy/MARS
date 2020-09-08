@@ -18,7 +18,7 @@ using namespace FilesystemProvider;
 
 int StartupUtils::grabFromString(string inp, long double& startRef,
 		long double& endRef, long& pointCountRef, double& pStepRef,
-		Matrice& matrixRef, int& blockCountRef, string& wDirRef,
+		Matrix& matrixRef, int& blockCountRef, string& wDirRef,
 		float& minDiffRef, int& appendConfigRef, float& linearCoefRef,
 		bool& doPlot) {
 	istringstream ifs = istringstream(inp);
@@ -48,7 +48,7 @@ int StartupUtils::grabFromString(string inp, long double& startRef,
 		} else if (buffer == "%msize" || buffer == "%ms") {
 			int size;
 			ifs >> size;
-			matrixRef = Matrice(size);
+			matrixRef = Matrix(size);
 			matrixRef.Randomize();
 		} else if (buffer == "%wdir" || buffer == "%wd" || buffer == "%dir") {
 			ifs >> wDirRef;
@@ -64,15 +64,15 @@ int StartupUtils::grabFromString(string inp, long double& startRef,
 						<< endl;
 				return -1;
 			} else if (buffer == "%ml_b" || buffer == "%mloc_b") {
-				cout << "InputParser: MESSAGE: Started building matrice."
+				cout << "InputParser: MESSAGE: Started building matrix."
 						<< endl;
 				matrixRef.buildMat(ifstream(loc));
 			} else {
-				cout << "InputParser: MESSAGE: Started building matrice."
+				cout << "InputParser: MESSAGE: Started building matrix."
 						<< endl;
-				matrixRef = Matrice(ifstream(loc));
+				matrixRef = Matrix(ifstream(loc));
 			}
-			cout << "InputParser: MESSAGE: Matrice loaded successfully" << endl;
+			cout << "InputParser: MESSAGE: Matrix loaded successfully" << endl;
 		} else if (buffer == "%ird" || buffer == "%initrand") {
 			string buf;
 			ifs >> buf;
@@ -136,7 +136,7 @@ int StartupUtils::grabFromString(string inp, long double& startRef,
 		exitCode = 1;
 	}
 	if (matrixRef.getSize() == 2) {
-		cout << "InputParser: WARNING: " << "Matrice not defined" << endl;
+		cout << "InputParser: WARNING: " << "Matrix not defined" << endl;
 		exitCode = 1;
 	}
 	return exitCode;

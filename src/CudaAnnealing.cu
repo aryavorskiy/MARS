@@ -5,7 +5,7 @@
  *      Author: alexander
  */
 
-#include "Matrice.h"
+#include "Matrix.h"
 #include "Spinset.h"
 #include "CudaAnnealing.h"
 #include <cuda_runtime.h>
@@ -21,7 +21,7 @@ void checkError(cudaError_t err, string arg = "") {
 	}
 }
 
-CudaAnnealing::CudaAnnealing(Matrice _matrix, int _blockCount, float _minDiff) {
+CudaAnnealing::CudaAnnealing(Matrix _matrix, int _blockCount, float _minDiff) {
 	minDiff = _minDiff;
 	// Set pointers to null
 	devSpins = NULL;
@@ -80,7 +80,7 @@ void CudaAnnealing::freeAllocatedMemory() {
 }
 
 __global__ void allocateHamiltonianMembers(float* devMat, float* devSpins,
-		int index, int size, double* hamiltonianMembers) {
+		int setIndex, int size, double* hamiltonianMembers) {
 	// Hamiltonian member assignment
 	int i;
 	int j;
@@ -89,8 +89,14 @@ __global__ void allocateHamiltonianMembers(float* devMat, float* devSpins,
 	while (wIndex < size * size) {
 		i = wIndex % size;
 		j = (int) (wIndex / size);
-		hamiltonianMembers[wIndex] = (double) (devSpins[i + index * size]
-				* devSpins[j + index * size] * devMat[wIndex]);
+		if (i == j)
+			hamiltonianMembers[wIndex] = devSpins[i + setIndex * size]
+					* devMat[wIndex];
+		else if (i > j)
+			hamiltonianMembers[wIndex] = (double) (devSpins[i + setIndex * size]
+					* devSpins[j + setIndex * size] * devMat[wIndex]);
+		else
+			hamiltonianMembers[wIndex] = 0;
 		wIndex = wIndex + blockDim.x * gridDim.x;
 	}
 }
@@ -103,8 +109,7 @@ __global__ void quickSum(double* members, int size) {
 	while (offset < size) {
 		wIndex = threadIdx.x;
 		while ((wIndex * 2 + 1) * offset < size) {
-			members[wIndex * 2 * offset] += members[(wIndex * 2 + 1)
-					* offset];
+			members[wIndex * 2 * offset] += members[(wIndex * 2 + 1) * offset];
 			wIndex = wIndex + blockDim.x;
 		}
 		offset *= 2;
@@ -123,7 +128,7 @@ double CudaAnnealing::extractHamiltonian(int index) { // Get hamiltonian from se
 	checkError(
 			cudaMemcpy(&out, hamiltonianMembers, sizeof(double),
 					cudaMemcpyDeviceToHost), "memcpy energy to host");
-	return out / 2.;
+	return out;
 }
 
 Spinset CudaAnnealing::extractSet(int index) { // Get spins from set with index
@@ -164,18 +169,17 @@ __global__ void cudaKernelAnneal(float* mat, float* spins, int size,
 			if (thrId == 0)
 				proceedFlags[blockId] = false;
 
-			for (int spinId = 0; spinId < size; ++spinId) {  // Anneal every spin
+			for (int spinId = 0; spinId < size; ++spinId) { // Anneal every spin
 				__syncthreads();
 
 				// Mean-field member assignment
 				int wIndex = thrId;
 
 				while (wIndex < unemptyCells[spinId * (size + 1)]) {
-					meanFieldMembers[wIndex + blockId * size] =
-							meanFieldMember(mat, spins + blockId * size,
-									spinId,
-									unemptyCells[spinId * (size + 1) + wIndex
-											+ 1], size);
+					meanFieldMembers[wIndex + blockId * size] = meanFieldMember(
+							mat, spins + blockId * size, spinId,
+							unemptyCells[spinId * (size + 1) + wIndex + 1],
+							size);
 					wIndex = wIndex + blockDim.x;
 				}
 				__syncthreads();
@@ -210,7 +214,8 @@ __global__ void cudaKernelAnneal(float* mat, float* spins, int size,
 					else
 						spins[spinId + blockId * size] = 1;
 
-					if (proceedThreshold < fabs(old - spins[spinId + blockId * size]))
+					if (proceedThreshold
+							< fabs(old - spins[spinId + blockId * size]))
 						proceedFlags[blockId] = true; // Too big delta. One more iteration needed
 				}
 				__syncthreads();

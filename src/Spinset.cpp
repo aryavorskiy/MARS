@@ -6,7 +6,7 @@
  */
 
 #include "Spinset.h"
-#include "Matrice.h"
+#include "Matrix.h"
 #include "CudaAnnealing.h"
 #include <stdio.h>
 #include <iostream>
@@ -21,7 +21,7 @@ Spinset::Spinset(int size) {
 
 void Spinset::Randomize() {
 	for (int i = 0; i < size; ++i)
-			spins[i] = (rand() / (float) RAND_MAX) * 2 - 1;
+		spins[i] = (rand() / (float) RAND_MAX) * 2 - 1;
 }
 
 void Spinset::SetSpin(int index, float value) {

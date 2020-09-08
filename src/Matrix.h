@@ -11,18 +11,18 @@
 #include <fstream>
 using namespace std;
 
-class Matrice {
+class Matrix {
 private:
 	int size;
-	float* matrice;
-	int* unemptyMat;
+	float* matrix;
+	int* nonZeroCells;
 	float sum;
 public:
-	Matrice(int size);
-	Matrice(ifstream fs);
+	Matrix(int size);
+	Matrix(ifstream fs);
 	void buildMat(ifstream ifs);
 	void Randomize();
-	string getMatriceText();
+	string getMatrixText();
 	int getSize();
 	float* getArray();
 	float getSum();

@@ -8,7 +8,7 @@
 #ifndef CUDAOPERATIONS_H_
 #define CUDAOPERATIONS_H_
 
-#include "Matrice.h"
+#include "Matrix.h"
 #include "Spinset.h"
 
 class CudaAnnealing {
@@ -27,7 +27,7 @@ private:
 	int blockCount;
 	float minDiff;
 public:
-	CudaAnnealing(Matrice matrix, int blockCount, float _minDiff);
+	CudaAnnealing(Matrix matrix, int blockCount, float _minDiff);
 	void loadSet(Spinset spinset, int index);
 	void anneal(float pStep, float linearCoef);
 	double extractHamiltonian(int index);

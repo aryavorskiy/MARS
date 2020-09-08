@@ -9,7 +9,7 @@
 #define SPINSET_H_
 #include <iostream>
 #include <stdio.h>
-#include "Matrice.h"
+#include "Matrix.h"
 using namespace std;
 
 class Spinset {

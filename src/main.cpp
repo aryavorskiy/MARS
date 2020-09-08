@@ -1,5 +1,5 @@
 #define VERSION 5.3
-#define BUILD 121
+#define BUILD 122
 
 #include <stdio.h>
 #include <iostream>
@@ -9,7 +9,7 @@
 #include <unistd.h>
 #include <ctime>
 #include <cmath>
-#include "Matrice.h"
+#include "Matrix.h"
 #include "Spinset.h"
 #include "FilesystemProvider.h"
 #include "Plotter.h"
@@ -20,7 +20,7 @@ using namespace std;
 using namespace FilesystemProvider;
 
 //Minimum storage
-double minHamiltonian;
+double minHamiltonian = 10000;
 int minCount;
 string minSpins;
 float lTemp;
@@ -45,7 +45,7 @@ string getTimeString(double time) {
 	return oss.str();
 }
 
-void saveMinData(string dir, Matrice matrix, long double dTemp,
+void saveMinData(string dir, Matrix matrix, long double dTemp,
 		long double upTemp, long count, int blockCount, bool plot) {
 	ofstream spinWriter;
 	if (FilesystemProvider::FileExists(dir + "/spins.txt"))
@@ -76,7 +76,7 @@ int main(int argc, char* argv[]) {
 			<< BUILD << endl;
 
 	//Init model
-	Matrice matrice(2);
+	Matrix matrice(2);
 	string dir = "";
 	long double dTemp = 0;
 	long double upTemp = -1;
@@ -118,8 +118,8 @@ int main(int argc, char* argv[]) {
 	cout << "Parsing..." << endl;
 	exitCode = StartupUtils::grabFromString(oss.str(), ref(dTemp), ref(upTemp),
 			ref(pointCount), ref(pullStep), ref(matrice), ref(blockCount),
-			ref(dir), ref(minimDiff), ref(appendConfig),
-			ref(linearCoef), ref(doPlot));
+			ref(dir), ref(minimDiff), ref(appendConfig), ref(linearCoef),
+			ref(doPlot));
 	if (exitCode == -1)
 		exit(-1);
 	cout << "Parsing complete." << endl;
@@ -170,7 +170,7 @@ int main(int argc, char* argv[]) {
 	ofstream fffff;
 	fffff.open("/home/alexander/qubo_check.txt", ios::out);
 
-	fffff << matrice.getMatriceText() << endl;
+	fffff << matrice.getMatrixText() << endl;
 
 // Start calculations
 	Spinset spins(matrice.getSize());
